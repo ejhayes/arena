@@ -1,10 +1,8 @@
-const express = require('express');
-const path = require('path');
-const bodyParser = require('body-parser');
-const handlebars = require('handlebars');
-const exphbs = require('express-handlebars');
+import * as express from 'express';
+import * as handlebars from 'handlebars';
+import * as exphbs from 'express-handlebars';
 
-module.exports = function (config) {
+export function run(config) {
   const hbs = exphbs.create({
     defaultLayout: `${__dirname}/views/layout`,
     handlebars,
@@ -32,10 +30,10 @@ module.exports = function (config) {
 
   app.engine('hbs', hbs.engine);
 
-  app.use(bodyParser.json());
+  app.use(express.json());
 
   return {
     app,
     Queues: queues,
   };
-};
+}

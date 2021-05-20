@@ -6,4 +6,4 @@ function handler(req, res) {
   return res.render('dashboard/templates/queueList', {basePath, queues});
 }
 
-module.exports = handler;
+export default handler;

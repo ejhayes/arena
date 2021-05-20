@@ -1,6 +1,6 @@
-const Arena = require('../');
-const {Queue, QueueScheduler, Worker, FlowProducer} = require('bullmq');
-const RedisServer = require('redis-server');
+import * as Arena from '../src';
+import {Queue, QueueScheduler, Worker, FlowProducer} from 'bullmq';
+import * as RedisServer from 'redis-server';
 
 // Select ports that are unlikely to be used by other services a developer might be running locally.
 const HTTP_SERVER_PORT = 4735;

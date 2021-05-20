@@ -1,9 +1,10 @@
-const router = require('express').Router();
+import {Router} from 'express';
+import queueList from './queueList';
+import queueDetails from './queueDetails';
+import queueJobsByState from './queueJobsByState';
+import jobDetails from './jobDetails';
 
-const queueList = require('./queueList');
-const queueDetails = require('./queueDetails');
-const queueJobsByState = require('./queueJobsByState');
-const jobDetails = require('./jobDetails');
+const router = Router();
 
 router.get('/', queueList);
 router.get('/:queueHost/:queueName', queueDetails);
@@ -13,4 +14,4 @@ router.get(
 );
 router.get('/:queueHost/:queueName/:id', jobDetails);
 
-module.exports = router;
+export default router;

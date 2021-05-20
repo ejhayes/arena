@@ -1,8 +1,6 @@
-const express = require('express');
-const path = require('path');
-const Arena = require('../');
-const Bull = require('bull');
-const RedisServer = require('redis-server');
+import * as Arena from '../src';
+import * as Bee from 'bee-queue';
+import * as RedisServer from 'redis-server';
 
 // Select ports that are unlikely to be used by other services a developer might be running locally.
 const HTTP_SERVER_PORT = 4735;
@@ -14,7 +12,8 @@ async function main() {
   const server = new RedisServer(REDIS_SERVER_PORT);
   await server.open();
 
-  const queue = new Bull('name_of_my_queue', {
+  const queue = new Bee('name_of_my_queue', {
+    activateDelayedJobs: true,
     redis: {
       port: REDIS_SERVER_PORT,
     },
@@ -32,12 +31,14 @@ async function main() {
   });
 
   // adding delayed jobs
-  const delayedJob = await queue.add({}, {delay: 60 * 1000});
-  delayedJob.log('Log message');
+  await queue
+    .createJob({})
+    .delayUntil(Date.now() + 60 * 1000)
+    .save();
 
-  const app = Arena(
+  Arena(
     {
-      Bull,
+      Bee,
 
       queues: [
         {
@@ -48,7 +49,7 @@ async function main() {
           hostId: 'Queue Server 1',
 
           // Queue type (Bull or Bee - default Bull).
-          type: 'bull',
+          type: 'bee',
 
           redis: {
             // host: 'localhost',
@@ -56,14 +57,11 @@ async function main() {
           },
         },
       ],
-      customJsPath: 'http://localhost:4735/example.js',
     },
     {
       port: HTTP_SERVER_PORT,
     }
   );
-
-  app.use(express.static(path.join(__dirname, 'public')));
 }
 
 main().catch((err) => {

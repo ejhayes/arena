@@ -1,18 +1,20 @@
 const _ = require('lodash');
-const {
-  BEE_STATES,
-  BULL_STATES,
-  BULLMQ_STATES,
-} = require('../helpers/queueHelpers');
+import Helpers from '../helpers/queueHelpers';
+
+interface PageOptions {
+  start?: number;
+  end?: number;
+  size?: number;
+}
 
 function getStates(queue) {
   if (queue.IS_BEE) {
-    return BEE_STATES;
+    return Helpers.BEE_STATES;
   }
   if (queue.IS_BULLMQ) {
-    return BULLMQ_STATES;
+    return Helpers.BULLMQ_STATES;
   }
-  return BULL_STATES;
+  return Helpers.BULL_STATES;
 }
 /**
  * Determines if the requested job state lookup is valid.
@@ -106,7 +108,7 @@ async function _html(req, res) {
 
   let jobs;
   if (queue.IS_BEE) {
-    const pageOptions = {};
+    const pageOptions: PageOptions = {};
 
     if (['failed', 'succeeded'].includes(state)) {
       pageOptions.size = pageSize;
@@ -162,4 +164,4 @@ async function _html(req, res) {
   });
 }
 
-module.exports = handler;
+export default handler;

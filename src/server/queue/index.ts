@@ -1,7 +1,65 @@
-const _ = require('lodash');
+import * as _ from 'lodash';
+
+import {RequestHandler} from 'express';
+import {ClientOpts} from 'redis';
+import {Redis} from 'ioredis';
+
+interface QueueConstructor {
+  new (queueName: string, opts?: QueueOptions): Queue;
+}
+
+interface QueueOptions {
+  name: string;
+  hostId?: string;
+  type?: 'bull' | 'bee' | 'bullmq' | string;
+  prefix?: 'bull' | 'bq' | string;
+}
+
+interface Queue {
+  // Interface of Queue is much larger and
+  // inconsistent between different packages.
+  // We are using an example method here
+  // that is consistent across all providers.
+  getJob(jobId: string): Promise<unknown>;
+}
+
+interface MiddlewareOptions {
+  Bull?: QueueConstructor;
+  Bee?: QueueConstructor;
+  BullMQ?: QueueConstructor;
+  queues: Array<QueueOptions & ConnectionOptions>;
+}
+
+interface PortHostConnectionOptions {
+  host: string;
+  port?: number;
+  password?: string;
+  db?: string;
+}
+
+interface RedisUrlConnectionOptions {
+  url: string;
+}
+
+interface RedisClientConnectionOptions {
+  redis: ClientOpts | Redis;
+}
+
+type ConnectionOptions =
+  | PortHostConnectionOptions
+  | RedisUrlConnectionOptions
+  | RedisClientConnectionOptions;
+
+interface QueueStorage {
+  [key: string]: QueueOptions & ConnectionOptions;
+}
 
 class Queues {
-  constructor(config) {
+  private _queues: QueueStorage;
+  private _config: MiddlewareOptions;
+  private useCdn;
+
+  constructor(config: MiddlewareOptions) {
     this._queues = {};
 
     this.useCdn = {
@@ -21,7 +79,7 @@ class Queues {
     return this._config.queues;
   }
 
-  setConfig(config) {
+  setConfig(config: MiddlewareOptions) {
     this._config = {...config, queues: config.queues.slice()};
 
     if (!this._config.queues.length) {
@@ -55,11 +113,12 @@ class Queues {
     );
   }
 
-  async get(queueName, queueHost) {
-    const queueConfig = _.find(this._config.queues, {
+  async get(queueName: string, queueHost: string) {
+    const queueConfig: any = _.find(this._config.queues, {
       name: queueName,
       hostId: queueHost,
     });
+
     if (!queueConfig) return null;
 
     if (this._queues[queueHost] && this._queues[queueHost][queueName]) {
@@ -79,7 +138,7 @@ class Queues {
       tls,
     } = queueConfig;
 
-    const redisHost = {host};
+    const redisHost: any = {host};
     if (password) redisHost.password = password;
     if (port) redisHost.port = port;
     if (db) redisHost.db = db;
@@ -88,7 +147,7 @@ class Queues {
     const isBee = type === 'bee';
     const isBullMQ = type === 'bullmq';
 
-    const options = {
+    const options: any = {
       redis: redis || url || redisHost,
     };
     if (prefix) options.prefix = prefix;
@@ -124,6 +183,7 @@ class Queues {
       queue = new Bull(name, options);
     }
 
+    // @ts-ignore
     this._queues[queueHost] = this._queues[queueHost] || {};
     this._queues[queueHost][queueName] = queue;
 
@@ -137,7 +197,7 @@ class Queues {
    * @param {Object} data The data to be used within the job
    * @param {String} name The name of the Bull job (optional)
    */
-  async set(queue, data, name) {
+  async set(queue, data, name: string) {
     if (queue.IS_BEE) {
       return queue.createJob(data).save();
     } else {

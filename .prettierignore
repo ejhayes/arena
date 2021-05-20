@@ -4,3 +4,4 @@
 *.d.ts
 tsconfig.json
 pull_request_template.md
+dist

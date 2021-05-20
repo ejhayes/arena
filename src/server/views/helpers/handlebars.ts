@@ -1,7 +1,7 @@
-const crypto = require('crypto');
-const _ = require('lodash');
-const Handlebars = require('handlebars');
-const moment = require('moment');
+import * as crypto from 'crypto';
+import * as _ from 'lodash';
+import * as Handlebars from 'handlebars';
+import * as moment from 'moment';
 
 const replacer = (key, value) => {
   if (_.isObject(value)) {
@@ -36,6 +36,7 @@ const helpers = {
     if (pretty) {
       args.push(2);
     }
+    // @ts-ignore - https://github.com/microsoft/TypeScript/issues/4130
     return new Handlebars.SafeString(JSON.stringify(...args));
   },
 

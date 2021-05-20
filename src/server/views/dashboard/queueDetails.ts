@@ -1,4 +1,4 @@
-const QueueHelpers = require('../helpers/queueHelpers');
+import QueueHelpers from '../helpers/queueHelpers';
 
 async function handler(req, res) {
   const {queueName, queueHost} = req.params;
@@ -33,4 +33,4 @@ async function handler(req, res) {
   });
 }
 
-module.exports = handler;
+export default handler;

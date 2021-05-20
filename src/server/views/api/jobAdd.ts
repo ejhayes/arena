@@ -1,4 +1,4 @@
-async function handler(req, res) {
+export default async function handler(req, res) {
   const {queueName, queueHost} = req.params;
   const {name, data} = req.body;
 
@@ -14,5 +14,3 @@ async function handler(req, res) {
   }
   return res.sendStatus(200);
 }
-
-module.exports = handler;

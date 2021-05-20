@@ -1,0 +1,8 @@
+import {Router} from 'express';
+import dashboardRoutes from './dashboard';
+import apiRoutes from './api';
+
+export const router = Router();
+
+router.use('/api', apiRoutes);
+router.use('/', dashboardRoutes);

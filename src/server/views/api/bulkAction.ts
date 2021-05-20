@@ -1,8 +1,8 @@
-const _ = require('lodash');
+import * as _ from 'lodash';
 
 const ACTIONS = ['remove', 'retry', 'promote'];
 
-function bulkAction(action) {
+export default function bulkAction(action) {
   return async function handler(req, res) {
     if (!_.includes(ACTIONS, action)) {
       res.status(401).send({
@@ -29,10 +29,13 @@ function bulkAction(action) {
             ? fetchedJobs.map((job) => {
                 if (
                   queueState === 'failed' &&
+                  // @ts-ignore
                   typeof job.retry === 'function'
                 ) {
+                  // @ts-ignore
                   return job.retry();
                 } else {
+                  // @ts-ignore
                   return Queues.set(queue, job.data, job.name);
                 }
               })
@@ -51,5 +54,3 @@ function bulkAction(action) {
     return res.sendStatus(200);
   };
 }
-
-module.exports = bulkAction;

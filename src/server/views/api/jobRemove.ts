@@ -1,4 +1,6 @@
-async function handler(req, res) {
+import {Request, Response} from 'express';
+
+export default async function handler(req: Request, res: Response) {
   const {queueName, queueHost, id} = req.params;
 
   const {Queues} = req.app.locals;
@@ -9,7 +11,7 @@ async function handler(req, res) {
   if (!job) return res.status(404).send({error: 'job not found'});
 
   try {
-    await job.promote();
+    await job.remove();
     return res.sendStatus(200);
   } catch (e) {
     const body = {
@@ -19,5 +21,3 @@ async function handler(req, res) {
     return res.status(500).send(body);
   }
 }
-
-module.exports = handler;

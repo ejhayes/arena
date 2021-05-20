@@ -1,4 +1,4 @@
-.tsbuildinfo
+*.tsbuildinfo
 dist
 node_modules
 package-lock.json
@@ -7,4 +7,4 @@ package-lock.json
 .idea
 *.tern-port
 *.sublime-workspace
-dump.rdb
+*.rdb

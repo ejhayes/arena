@@ -1,10 +1,19 @@
 {
-  "include": ["index.js","src"],
   "compilerOptions": {
-    "allowJs": true,
+    "module": "commonjs",
     "declaration": true,
-    "composite": true,
-    "outDir": "dist",
-    "target": "es2017"
-  }
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es2017",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "incremental": true
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ]
 }

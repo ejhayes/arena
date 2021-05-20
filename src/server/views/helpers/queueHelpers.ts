@@ -1,4 +1,4 @@
-const _ = require('lodash');
+import * as _ from 'lodash';
 
 /**
  * Formats the number into "human readable" number/
@@ -7,7 +7,7 @@ const _ = require('lodash');
  * @returns {string} The number as a string or error text if we couldn't
  *   format it.
  */
-function formatBytes(num) {
+function formatBytes(num: number): string {
   if (!Number.isFinite(num)) {
     return 'Could not retrieve value';
   }
@@ -78,4 +78,4 @@ const Helpers = {
   ],
 };
 
-module.exports = Helpers;
+export default Helpers;

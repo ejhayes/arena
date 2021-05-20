@@ -1,9 +1,19 @@
-const express = require('express');
-const path = require('path');
-const Arena = require('./src/server/app');
-const routes = require('./src/server/views/routes');
+import 'source-map-support/register';
+import * as express from 'express';
+import * as path from 'path';
+import {run as Arena} from './server/app';
+import {router as routes} from './server/views/routes';
 
-function run(config, listenOpts = {}) {
+function run(
+  config,
+  listenOpts: {
+    useCdn?: boolean;
+    basePath?: string;
+    port?: number;
+    host?: string;
+    disableListen?: boolean;
+  } = {}
+) {
   const {app, Queues} = Arena(config);
 
   Queues.useCdn =
@@ -35,8 +45,7 @@ function runDefault(config, listenOpts = {}) {
   return run(config, listenOpts).app;
 }
 
-// default export remains unchanged
-module.exports = runDefault;
-
-// named exports
-module.exports.run = run;
+// ensure that default export remains the same while also
+// providing access to the underlying run function
+export = runDefault;
+runDefault.run = run;
