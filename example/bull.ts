@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as Arena from '../src';
 import * as Bull from 'bull';
 import * as RedisServer from 'redis-server';
+import {QUEUE_TYPES} from '../src/enums';
 
 // Select ports that are unlikely to be used by other services a developer might be running locally.
 const HTTP_SERVER_PORT = 4735;
@@ -48,10 +49,10 @@ async function main() {
           hostId: 'Queue Server 1',
 
           // Queue type (Bull or Bee - default Bull).
-          type: 'bull',
+          type: QUEUE_TYPES.BULL,
 
           redis: {
-            // host: 'localhost',
+            host: '127.0.0.1',
             port: REDIS_SERVER_PORT,
           },
         },

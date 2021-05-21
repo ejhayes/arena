@@ -1,49 +1,75 @@
 import 'source-map-support/register';
 import * as express from 'express';
-import * as path from 'path';
-import {run as Arena} from './server/app';
-import {router as routes} from './server/views/routes';
+import {Arena} from './server/app';
+import {ArenaConfig, ListenerConfig} from './interfaces';
+import {bool, cleanEnv, port, str} from 'envalid';
+import {Server} from 'http';
 
-function run(
-  config,
-  listenOpts: {
-    useCdn?: boolean;
-    basePath?: string;
-    port?: number;
-    host?: string;
-    disableListen?: boolean;
-  } = {}
-) {
-  const {app, Queues} = Arena(config);
+class ArenaServer {
+  private readonly _listenerConfig: ListenerConfig;
+  private readonly _arena: Arena;
+  private _server: Server;
 
-  Queues.useCdn =
-    typeof listenOpts.useCdn !== 'undefined' ? listenOpts.useCdn : true;
-
-  app.locals.appBasePath = listenOpts.basePath || app.locals.appBasePath;
-
-  app.use(
-    app.locals.appBasePath,
-    express.static(path.join(__dirname, 'public'))
-  );
-  app.use(app.locals.appBasePath, routes);
-
-  const port = listenOpts.port || 4567;
-  const host = listenOpts.host || '0.0.0.0'; // Default: listen to all network interfaces.
-  if (!listenOpts.disableListen) {
-    app.listen(port, host, () => {
-      console.log(`Arena is running on port ${port} at host ${host}`);
+  constructor(config: ArenaConfig, listenerConfig?: Partial<ListenerConfig>) {
+    this._listenerConfig = cleanEnv(listenerConfig, {
+      basePath: str({default: '/'}),
+      disableListen: bool({default: false}),
+      host: str({default: '0.0.0.0'}),
+      port: port({default: 4735}),
     });
+
+    if (!config.Bee && !config.Bull && !config.BullMQ) {
+      throw new TypeError(
+        'As of 3.0.0, bull-arena requires that the queue constructors be provided to Arena (Bull, Bee, BullMQ)'
+      );
+    }
+
+    this._arena = new Arena(
+      listenerConfig.basePath,
+      Object.assign({useCdn: false}, config)
+    );
   }
 
-  return {
-    app,
-    queues: Queues,
-  };
+  getQueues() {
+    return this._arena.getQueues();
+  }
+
+  start() {
+    this._server = this._arena
+      .getApp()
+      .listen(this._listenerConfig.port, this._listenerConfig.host, () => {
+        console.log(
+          `Arena is listening on ${this._listenerConfig.host}:${this._listenerConfig.port}`
+        );
+      });
+    return this._arena.getApp();
+  }
+
+  async stop(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this._server.close((err?: Error) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve();
+      });
+    });
+  }
 }
 
-function runDefault(config, listenOpts = {}) {
-  return run(config, listenOpts).app;
-}
+const run = (
+  config: ArenaConfig,
+  listenerConfig: Partial<ListenerConfig> = {}
+) => {
+  return new ArenaServer(config, listenerConfig);
+};
+const runDefault = (
+  config: ArenaConfig,
+  listenerConfig: Partial<ListenerConfig> = {}
+) => {
+  return run(config, listenerConfig).start();
+};
 
 // ensure that default export remains the same while also
 // providing access to the underlying run function

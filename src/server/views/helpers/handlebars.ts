@@ -2,70 +2,63 @@ import * as crypto from 'crypto';
 import * as _ from 'lodash';
 import * as Handlebars from 'handlebars';
 import * as moment from 'moment';
-
-const replacer = (key, value) => {
-  if (_.isObject(value)) {
-    return _.transform(value, (result, v, k) => {
-      result[Handlebars.Utils.escapeExpression(k)] = v;
-    });
-  } else if (_.isString(value)) {
-    return Handlebars.Utils.escapeExpression(value);
-  } else {
-    return value;
-  }
-};
+import {JobAdapter} from '../../../interfaces';
 
 // For jobs that don't have a valid ID, produce a random ID we can use in its place.
 const idMapping = new WeakMap();
-
-const getTimestamp = (job) => {
-  // Bull
-  if (job.timestamp) {
-    return job.timestamp;
-  }
-
-  // Bee
-  if (job.options && job.options.timestamp) {
-    return job.options.timestamp;
-  }
-};
+const _blocks: {[blockName: string]: string[]} = {};
 
 const helpers = {
-  json(obj, pretty = false) {
-    const args = [obj, replacer];
-    if (pretty) {
-      args.push(2);
+  replacer: (key: string, value) => {
+    if (_.isObject(value)) {
+      return _.transform(value, (result, v, k) => {
+        result[Handlebars.Utils.escapeExpression(k)] = v;
+      });
+    } else if (_.isString(value)) {
+      return Handlebars.Utils.escapeExpression(value);
+    } else {
+      return value;
     }
-    // @ts-ignore - https://github.com/microsoft/TypeScript/issues/4130
-    return new Handlebars.SafeString(JSON.stringify(...args));
   },
 
-  isNumber(operand) {
-    return parseInt(operand, 10).toString() === String(operand);
+  json: (obj: any, pretty: boolean = false) => {
+    return new Handlebars.SafeString(
+      JSON.stringify(obj, null, pretty ? 2 : undefined)
+    );
   },
 
-  adjustedPage(currentPage, pageSize, newPageSize) {
+  isNumber: (value: any) => {
+    return _.isNumber(value);
+  },
+
+  adjustedPage: (
+    currentPage: number,
+    pageSize: number,
+    newPageSize: number
+  ) => {
     const firstId = (currentPage - 1) * pageSize;
     return _.ceil(firstId / newPageSize) + 1;
   },
 
-  block(name) {
-    const blocks = this._blocks;
-    const content = blocks && blocks[name];
-    return content ? content.join('\n') : null;
-  },
-
-  contentFor(name, options) {
-    const blocks = this._blocks || (this._blocks = {});
-    const block = blocks[name] || (blocks[name] = []);
-    block.push(options.fn(this));
-  },
-
-  hashIdAttr(obj) {
-    const {id} = obj;
-    if (typeof id === 'string') {
-      return crypto.createHash('sha256').update(id).digest('hex');
+  block: (name: string) => {
+    if (name in _blocks) {
+      return _blocks[name].join('\n');
     }
+  },
+
+  contentFor: (name: string, options: {fn: Function}) => {
+    if (!(name in _blocks)) {
+      _blocks[name] = [];
+    }
+
+    _blocks[name].push(options.fn(this));
+  },
+
+  hashIdAttr: (obj: {id: any}) => {
+    if (typeof obj.id === 'string') {
+      return crypto.createHash('sha256').update(obj.id).digest('hex');
+    }
+
     let mapping = idMapping.get(obj);
     if (!mapping) {
       mapping = crypto.randomBytes(32).toString('hex');
@@ -74,39 +67,30 @@ const helpers = {
     return mapping;
   },
 
-  getDelayedExectionAt(job) {
-    // Bull
-    if (job.delay) {
-      return job.delay + getTimestamp(job);
-    }
-
-    // Bee
-    if (job.options && job.options.delay) {
-      return job.options.delay;
-    }
+  getDelayedExecutionAt: (job: JobAdapter) => {
+    return job.getDelay() + job.getTimestamp();
   },
 
-  getTimestamp,
+  getTimestamp: (job: JobAdapter) => {
+    return job.getTimestamp();
+  },
 
-  encodeURI(url) {
+  encodeURI: (url: string) => {
     if (typeof url !== 'string') {
       return '';
     }
+
     return encodeURIComponent(url);
   },
 
-  capitalize(value) {
-    if (typeof value !== 'string') {
-      return '';
-    }
-    return value.charAt(0).toUpperCase() + value.slice(1);
+  capitalize: (value: string) => {
+    return _.capitalize(value);
   },
 
-  add(a, b) {
-    if (Handlebars.helpers.isNumber(a) && Handlebars.helpers.isNumber(b)) {
+  add: (a: any, b: any) => {
+    if (helpers.isNumber(a) && helpers.isNumber(b)) {
       return parseInt(a, 10) + parseInt(b, 10);
     }
-
     if (typeof a === 'string' && typeof b === 'string') {
       return a + b;
     }
@@ -114,7 +98,7 @@ const helpers = {
     return '';
   },
 
-  subtract(a, b) {
+  subtract: (a, b) => {
     if (!Handlebars.helpers.isNumber(a)) {
       throw new TypeError('expected the first argument to be a number');
     }
@@ -124,28 +108,20 @@ const helpers = {
     return parseInt(a, 10) - parseInt(b, 10);
   },
 
-  length(value) {
+  length: (value) => {
     if (typeof value === 'string' || Array.isArray(value)) {
       return value.length;
     }
     return 0;
   },
 
-  moment(date, format) {
+  moment: (date, format) => {
     return moment(date).format(format);
   },
 
-  eq(a, b, options) {
+  eq: (a, b, options: {fn: Function; inverse: Function}) => {
     return a === b ? options.fn(this) : options.inverse(this);
   },
 };
 
-module.exports = function registerHelpers(hbs, {queues}) {
-  _.each(helpers, (fn, helper) => {
-    hbs.registerHelper(helper, fn);
-  });
-
-  hbs.registerHelper('useCdn', () => {
-    return queues.useCdn;
-  });
-};
+export = helpers;

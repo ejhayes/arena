@@ -1,8 +1,9 @@
+import {ArenaQueue} from '../../queue';
 import QueueHelpers from '../helpers/queueHelpers';
 
 async function handler(req, res) {
   const {queueName, queueHost} = req.params;
-  const {Queues} = req.app.locals;
+  const Queues: ArenaQueue = req.app.locals.Queues;
   const queue = await Queues.get(queueName, queueHost);
   const basePath = req.baseUrl;
   if (!queue)

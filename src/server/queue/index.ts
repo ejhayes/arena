@@ -1,218 +1,59 @@
-import * as _ from 'lodash';
+import {QUEUE_TYPES} from '../../enums';
+import {ArenaConfig, QueueConfig, QueueAdapter} from '../../interfaces';
+import {BeeQueueAdapter} from './adapters/bee.adapter';
+import {BullQueueAdapter} from './adapters/bull.adapter';
+import {BullMQQueueAdapter} from './adapters/bullmq.adapter';
 
-import {RequestHandler} from 'express';
-import {ClientOpts} from 'redis';
-import {Redis} from 'ioredis';
+export class ArenaQueue {
+  private readonly _queues: {[queueName: string]: QueueAdapter} = {};
 
-interface QueueConstructor {
-  new (queueName: string, opts?: QueueOptions): Queue;
-}
-
-interface QueueOptions {
-  name: string;
-  hostId?: string;
-  type?: 'bull' | 'bee' | 'bullmq' | string;
-  prefix?: 'bull' | 'bq' | string;
-}
-
-interface Queue {
-  // Interface of Queue is much larger and
-  // inconsistent between different packages.
-  // We are using an example method here
-  // that is consistent across all providers.
-  getJob(jobId: string): Promise<unknown>;
-}
-
-interface MiddlewareOptions {
-  Bull?: QueueConstructor;
-  Bee?: QueueConstructor;
-  BullMQ?: QueueConstructor;
-  queues: Array<QueueOptions & ConnectionOptions>;
-}
-
-interface PortHostConnectionOptions {
-  host: string;
-  port?: number;
-  password?: string;
-  db?: string;
-}
-
-interface RedisUrlConnectionOptions {
-  url: string;
-}
-
-interface RedisClientConnectionOptions {
-  redis: ClientOpts | Redis;
-}
-
-type ConnectionOptions =
-  | PortHostConnectionOptions
-  | RedisUrlConnectionOptions
-  | RedisClientConnectionOptions;
-
-interface QueueStorage {
-  [key: string]: QueueOptions & ConnectionOptions;
-}
-
-class Queues {
-  private _queues: QueueStorage;
-  private _config: MiddlewareOptions;
-  private useCdn;
-
-  constructor(config: MiddlewareOptions) {
-    this._queues = {};
-
-    this.useCdn = {
-      value: true,
-      get useCdn() {
-        return this.value;
-      },
-      set useCdn(newValue) {
-        this.value = newValue;
-      },
-    };
-
-    this.setConfig(config);
+  constructor(private readonly arenaConfig: ArenaConfig) {
+    for (const queue of this.arenaConfig.queues) {
+      console.log(`adding: ${queue.name}`);
+      this.add(queue.name, queue);
+    }
   }
 
   list() {
-    return this._config.queues;
+    return Object.values(this._queues).map((i) => i.getQueueConfig());
   }
 
-  setConfig(config: MiddlewareOptions) {
-    this._config = {...config, queues: config.queues.slice()};
+  createJob(queueName: string, data?: {}, jobName?: string) {
+    return this.get(queueName).createJob(data, jobName);
+  }
 
-    if (!this._config.queues.length) {
-      throw new Error('unsupported configuration: no queues configured');
-    }
+  get(queueName: string) {
+    return this._queues[queueName];
+  }
 
-    if (!this._checkConstructors()) {
-      throw new TypeError(
-        'as of 3.0.0, bull-arena requires that the queue constructors be provided to Arena'
-      );
+  add(queueName: string, queue: QueueConfig) {
+    switch (queue.type) {
+      case QUEUE_TYPES.BEE:
+        this._queues[queueName] = new BeeQueueAdapter(
+          this.arenaConfig.Bee,
+          queue
+        );
+        break;
+      case QUEUE_TYPES.BULL:
+        this._queues[queueName] = new BullQueueAdapter(
+          this.arenaConfig.Bull,
+          queue
+        );
+        break;
+      case QUEUE_TYPES.BULLMQ:
+        this._queues[queueName] = new BullMQQueueAdapter(
+          this.arenaConfig.BullMQ,
+          queue
+        );
+        break;
+      default:
+        throw new Error(`Unknown queue type: ${queue.type}`);
     }
   }
 
-  _checkConstructors() {
-    let hasBull = false,
-      hasBee = false,
-      hasBullMQ = false;
-    for (const queue of this._config.queues) {
-      if (queue.type === 'bee') hasBee = true;
-      else if (queue.type === 'bullmq') hasBullMQ = true;
-      else hasBull = true;
-
-      if (hasBull && hasBee && hasBullMQ) break;
-    }
-
-    return (
-      (hasBull || hasBee || hasBullMQ) &&
-      (!hasBull || !!this._config.Bull) &&
-      (!hasBee || !!this._config.Bee) &&
-      (!hasBullMQ || !!this._config.BullMQ)
-    );
-  }
-
-  async get(queueName: string, queueHost: string) {
-    const queueConfig: any = _.find(this._config.queues, {
-      name: queueName,
-      hostId: queueHost,
-    });
-
-    if (!queueConfig) return null;
-
-    if (this._queues[queueHost] && this._queues[queueHost][queueName]) {
-      return this._queues[queueHost][queueName];
-    }
-
-    const {
-      type,
-      name,
-      port,
-      host,
-      db,
-      password,
-      prefix,
-      url,
-      redis,
-      tls,
-    } = queueConfig;
-
-    const redisHost: any = {host};
-    if (password) redisHost.password = password;
-    if (port) redisHost.port = port;
-    if (db) redisHost.db = db;
-    if (tls) redisHost.tls = tls;
-
-    const isBee = type === 'bee';
-    const isBullMQ = type === 'bullmq';
-
-    const options: any = {
-      redis: redis || url || redisHost,
-    };
-    if (prefix) options.prefix = prefix;
-
-    let queue;
-    if (isBee) {
-      _.extend(options, {
-        isWorker: false,
-        getEvents: false,
-        sendEvents: false,
-        storeJobs: false,
-      });
-
-      const {Bee} = this._config;
-      queue = new Bee(name, options);
-      queue.IS_BEE = true;
-    } else if (isBullMQ) {
-      if (queueConfig.createClient)
-        options.createClient = queueConfig.createClient;
-
-      const {BullMQ} = this._config;
-      const {redis, ...rest} = options;
-      queue = new BullMQ(name, {
-        connection: redis,
-        ...rest,
-      });
-      queue.IS_BULLMQ = true;
-    } else {
-      if (queueConfig.createClient)
-        options.createClient = queueConfig.createClient;
-
-      const {Bull} = this._config;
-      queue = new Bull(name, options);
-    }
-
-    // @ts-ignore
-    this._queues[queueHost] = this._queues[queueHost] || {};
-    this._queues[queueHost][queueName] = queue;
-
-    return queue;
-  }
-
-  /**
-   * Creates and adds a job with the given `data` to the given `queue`.
-   *
-   * @param {Object} queue A bee or bull queue class
-   * @param {Object} data The data to be used within the job
-   * @param {String} name The name of the Bull job (optional)
-   */
-  async set(queue, data, name: string) {
-    if (queue.IS_BEE) {
-      return queue.createJob(data).save();
-    } else {
-      const args = [
-        data,
-        {
-          removeOnComplete: false,
-          removeOnFail: false,
-        },
-      ];
-
-      if (name) args.unshift(name);
-      return queue.add.apply(queue, args);
+  remove(queueName: string) {
+    if (queueName in this._queues) {
+      delete this._queues[queueName];
     }
   }
 }
-
-module.exports = Queues;
